@@ -24,6 +24,8 @@ import os
 # combine all the files into one big file
 # df = pd.concat(files_list, axis=0)
 
+print("getting weather data...")
+
 #For only reading 1 file
 df = pd.read_csv('newgoogle-2024-07.csv', index_col=None, header=0)
 
@@ -41,14 +43,14 @@ df.drop(columns='Unnamed: 1', inplace=True)
 numrows = len(df.index)-3
 df.dropna(axis='columns', thresh=numrows, inplace=True)
 df.dropna(axis='index', how='any', inplace=True)
-df.drop(labels=5, axis=0, inplace=True)
+df.drop(labels=5, axis='index', inplace=True)
 df = df.reset_index(drop=True)
 
 #convert the first column to datetime
 df['Station:'] = pd.to_datetime(df['Station:'], format="%d.%m.%Y %H:%M:%S")
 
 #rename all columns to their correct values
-df.rename(columns={"Station:":"Timestamp", "DLx Met":"Wind speed", "DLx Met.1":"Wind direction",
+df.rename(columns={"Station:":"timestamp", "DLx Met":"Wind speed", "DLx Met.1":"Wind direction",
     "DLx Met.2":"Air temperature", "DLx Met.3":"Relative humidity", "DLx Met.4":"Solar irradiance",
     "DLx Met.5":"Precipitation", "DLx Met.6":"Dew point temperature"}, inplace=True)
 
@@ -64,12 +66,61 @@ df['Dew point temperature'] = df['Dew point temperature'].astype(float) # degree
 #print(df.types)
 
 #create a dataframe that only has the measurement columns
-df = df[['Timestamp','Wind speed','Wind direction','Relative humidity','Solar irradiance',
-    'Precipitation','Air temperature','Dew point temperature']]
+# df = df[['timestamp','Wind speed','Wind direction','Relative humidity','Solar irradiance',
+#     'Precipitation','Air temperature','Dew point temperature']]
+df = df[['timestamp','Wind speed','Relative humidity','Solar irradiance','Air temperature','Dew point temperature']]
 
-print(df.head())
+df.set_index('timestamp', inplace=True)
+#print(df.head())
 
-timecol = 'Timestamp'
+
+# GET PHYTONODE CSV
+print("getting phytonode data...")
+
+df_phyto = pd.read_csv('P1_rounded.csv', index_col=None, header=0) #P1_2024_07_23-12_00_00
+#convert timestamp column to datetime type
+df_phyto['timestamp'] = pd.to_datetime(df_phyto['timestamp'], format="%Y-%m-%d %H:%M:%S") #.%f")
+#set timestamp index so can merge with weather data
+df_phyto.set_index('timestamp', inplace=True)
+
+#need to round the phytonode timestamps to match weather timestamps
+#df_phyto = df_phyto.resample('5min').mean()
+
+#save the resampled csv to save time later
+#df_phyto.to_csv("P1_rounded.csv", index=True)
+#print(df_phyto.head())
+
+
+#MERGE weather and phytnode dataframes
+#get weather data only when phytonode was measuring
+df = df.loc['2024-07-23 11:30:00':'2024-07-30 09:30:00']
+#resample weather data to match phytonode?
+df = df.resample('1s').ffill()
+
+final_df = pd.concat([df, df_phyto], axis=1)
+
+print(final_df.head())
+print(len(final_df.index))
+print("working...")
+
+
+ax = final_df.plot(subplots=True, kind="line", figsize=(10,6))
+#label the units for each subplot
+ax[0].set_ylabel('m/s')
+# ax[1].set_ylabel('°')
+ax[1].set_ylabel('%')
+ax[2].set_ylabel('W/m²')
+# ax[4].set_ylabel('mm')
+ax[3].set_ylabel('°C')
+ax[4].set_ylabel('°C')
+
+# auto formate the timestamps to be readable
+plt.gcf().autofmt_xdate()
+
+print("done")
+plt.show()
+
+#timecol = 'timestamp'
 #ycol0 = 'Wind speed'            # m/s
 #ycol1 = 'Wind direction'        # degrees
 #ycol2 = 'Relative humidity'     # %
@@ -77,25 +128,3 @@ timecol = 'Timestamp'
 #ycol4 = 'Precipitation'         # mm
 #ycol5 = 'Air temperature'       # degrees Celcius
 #ycol6 = 'Dew point temperature' # degrees Celcius
-
-print("working...")
-
-#~~~ WIP ~~~
-# do not plot data that has "ungültig" (not valid)
-# how to plot only from a certain timeframe?
-
-ax = df.plot(x=timecol, subplots=True, kind="line", figsize=(10,6))
-#label the units for each subplot
-ax[0].set_ylabel('m/s')
-ax[1].set_ylabel('°')
-ax[2].set_ylabel('%')
-ax[3].set_ylabel('W/m²')
-ax[4].set_ylabel('mm')
-ax[5].set_ylabel('°C')
-ax[6].set_ylabel('°C')
-
-# auto formate the timestamps to be readable
-plt.gcf().autofmt_xdate()
-
-print("done")
-plt.show()
