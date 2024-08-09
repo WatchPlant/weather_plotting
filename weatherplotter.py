@@ -83,12 +83,23 @@ df_phyto['timestamp'] = pd.to_datetime(df_phyto['timestamp'], format="%Y-%m-%d %
 #set timestamp index so can merge with weather data
 df_phyto.set_index('timestamp', inplace=True)
 
+#change phytonode data to mV
+Vref = 2.5
+gain = 4
+databits = 8388608
+# volt = data / databits
+# volt1 = volt - 1
+# volt2 = volt1 * Vref / Gain
+# return volt2 * 1000
+
+df_phyto = df_phyto.apply(lambda x: (((x/databits)-1)*Vref/gain)*1000)
+
 #need to round the phytonode timestamps to match weather timestamps
-#df_phyto = df_phyto.resample('5min').mean()
+#df_phyto = df_phyto.resample('1s').mean()
 
 #save the resampled csv to save time later
 #df_phyto.to_csv("P1_rounded.csv", index=True)
-#print(df_phyto.head())
+print(df_phyto.head())
 
 
 #MERGE weather and phytnode dataframes
@@ -113,6 +124,8 @@ ax[2].set_ylabel('W/m²')
 # ax[4].set_ylabel('mm')
 ax[3].set_ylabel('°C')
 ax[4].set_ylabel('°C')
+ax[5].set_ylabel('mV')
+ax[6].set_ylabel('mV')
 
 # auto formate the timestamps to be readable
 plt.gcf().autofmt_xdate()
